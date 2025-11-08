@@ -1,0 +1,594 @@
+:root {
+    --color-primary: #4a6fa5;
+    --color-secondary: #ff9a3c;
+    --color-background: linear-gradient(135deg, #f5f7fa 0%, #e0e7ff 100%);
+    --color-surface: #ffffff;
+    --color-text: #2c3e50;
+    --color-border: #ddd;
+    --color-highlight: #d6e4f0;
+    --color-error: #e74c3c;
+    /* 3D Sudoku specific colors */
+    --blue-light: #a3d9ff;
+    --blue-medium: #4a90e2;
+    --blue-dark: #1c5fa5;
+    --glass-bg: rgba(255, 255, 255, 0.2);
+    --glass-border: rgba(255, 255, 255, 0.3);
+    --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+}
+
+/* Base Styles & Typography */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--color-background);
+    color: var(--color-text);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    transition: background-color 0.5s;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* Animated background elements */
+.background-elements {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.floating-number {
+    position: absolute;
+    font-size: 2rem;
+    font-weight: bold;
+    color: rgba(74, 144, 226, 0.1);
+    animation: float 15s infinite linear;
+}
+
+@keyframes float {
+    0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-100vh) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+.game-wrapper {
+    max-width: 500px;
+    width: 95%;
+    padding: 20px;
+    background: var(--color-surface);
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* --- 3D Grid Styling --- */
+.board-3d-scene {
+    /* Create the illusion of depth for the entire board */
+    perspective: 1200px;
+    /* Apply a slight 3D rotation to give it a floating appearance */
+    transform: rotateX(15deg) rotateY(-8deg) translateZ(0);
+    margin: 30px auto;
+    transition: transform 0.5s ease-out;
+}
+
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    grid-template-rows: repeat(9, 1fr);
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    /* Essential: makes children (cells) live in 3D space */
+    transform-style: preserve-3d;
+    background: linear-gradient(135deg, var(--blue-light), var(--blue-medium));
+    border: 8px solid var(--blue-dark);
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3),
+                inset 0 0 20px rgba(255, 255, 255, 0.2);
+    overflow: hidden; /* Keeps cell shadows within bounds */
+    position: relative;
+    transition: all 0.5s ease;
+}
+
+.grid-container::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+    background: linear-gradient(45deg, 
+                rgba(255,255,255,0.1) 0%, 
+                rgba(255,255,255,0.3) 50%, 
+                rgba(255,255,255,0.1) 100%);
+    border-radius: 20px;
+    z-index: -1;
+    filter: blur(10px);
+}
+
+/* Individual Cell Styling */
+.cell {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    font-weight: 700;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    user-select: none;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.cell:hover:not(.fixed), .cell.selected {
+    /* 3D Pop-out effect on hover/click */
+    transform: translateZ(15px) scale(1.05);
+    box-shadow: 0 10px 25px rgba(74, 144, 226, 0.5),
+                inset 0 0 15px rgba(255, 255, 255, 0.5);
+    background: linear-gradient(145deg, #ffffff, var(--color-highlight));
+    z-index: 10;
+    border: 1px solid rgba(74, 144, 226, 0.5);
+}
+
+.cell.fixed {
+    color: var(--color-text);
+    background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+    font-weight: 900;
+    cursor: default;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Highlight related rows, columns, and boxes */
+.cell.highlighted {
+    background-color: var(--color-highlight);
+}
+
+/* Error/Mistake Feedback */
+.cell.error {
+    color: var(--color-error);
+    background-color: #f8d7da !important;
+    animation: shake 0.3s;
+}
+
+/* 3x3 Block Borders (Thicker lines) */
+.cell:nth-child(3n) { border-right-width: 3px; border-right-color: #aaa; }
+.cell:nth-child(9n-8):nth-child(3n+1) { border-left-width: 3px; border-left-color: #aaa; }
+.cell:nth-child(27n) ~ .cell:nth-child(27n-18) { border-bottom-width: 3px; border-bottom-color: #aaa; }
+/* Correct the border on the right edge */
+.cell:nth-child(9n) { border-right-width: 1px; border-right-color: var(--color-border); }
+
+/* --- Pencil Mode (Notes) --- */
+.notes {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    height: 90%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    font-size: 8px;
+    color: #888;
+    font-weight: 400;
+}
+.notes span {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.cell:not(.fixed) .cell-value {
+    font-size: 0; /* Hide main number when in notes mode */
+}
+.cell.has-notes .cell-value {
+    font-size: 0; /* Ensure main number is hidden if notes are present */
+}
+
+/* --- UI & Controls --- */
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    margin-bottom: 10px;
+}
+
+.stats-group {
+    display: flex;
+    gap: 20px;
+}
+
+.stat-item {
+    font-weight: 600;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    color: #6c757d;
+}
+.stat-item i { margin-right: 5px; color: var(--color-primary); }
+
+.game-controls {
+    display: flex;
+    justify-content: space-around;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.rounded-btn {
+    padding: 10px 15px;
+    border-radius: 50px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+}
+
+.rounded-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+.action-btn {
+    background: #e9ecef;
+    color: var(--color-text);
+}
+
+.action-btn#pencil-btn[data-mode="on"] {
+    background: linear-gradient(45deg, var(--color-primary), #00bfff);
+    color: white;
+}
+
+.number-input-pad {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 8px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 12px;
+}
+
+.num-input-btn {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    font-size: 20px;
+    font-weight: 700;
+    background: linear-gradient(145deg, #ffffff, #f0f0f0);
+    border: 1px solid #ddd;
+    color: var(--color-text);
+}
+
+.num-input-btn:active {
+    transform: scale(0.95);
+    background: #ddd;
+}
+
+/* --- Pause/Victory Overlay (UI/UX) --- */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+.overlay-content {
+    background: var(--color-surface);
+    padding: 40px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+    transform: scale(1);
+    transition: transform 0.3s ease-out;
+}
+
+.victory-icon {
+    font-size: 5rem;
+    color: var(--color-secondary);
+    animation: tada 1.5s infinite;
+}
+
+.large-btn {
+    display: block;
+    width: 100%;
+    margin-top: 15px;
+    padding: 15px 20px;
+    font-size: 18px;
+}
+
+.primary-btn {
+    background: var(--color-primary);
+    color: white;
+}
+
+/* --- Animations --- */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
+}
+
+@keyframes tada {
+    0% { transform: scale(1); }
+    10%, 20% { transform: scale(0.9) rotate(-3deg); }
+    30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); }
+    40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); }
+    100% { transform: scale(1) rotate(0); }
+}
+
+/* Ripple effect for buttons */
+@keyframes ripple {
+    0% {
+        transform: scale(0);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+
+/* Pulse animation for 3D elements */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.3), 0 0 20px rgba(74, 144, 226, 0.4);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+    }
+}
+
+/* --- Mobile Responsiveness --- */
+@media (max-width: 600px) {
+    .game-wrapper {
+        padding: 10px;
+        border-radius: 0;
+        min-height: 100vh;
+        width: 100%;
+    }
+    body {
+        align-items: flex-start;
+    }
+    .board-3d-scene {
+        /* Reduce 3D effect on small screens for better viewing */
+        transform: rotateX(0deg) rotateY(0deg);
+        margin: 10px auto;
+    }
+    .game-controls {
+        flex-wrap: wrap;
+    }
+    .action-btn {
+        flex-basis: 48%; /* Two buttons per row */
+    }
+    
+    /* Mobile game controls positioning */
+    .mobile-controls {
+        display: none;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    @media (max-width: 768px) {
+        .mobile-controls {
+            display: flex;
+        }
+    }
+}
+
+/* Game Info Row - New styling for the info boxes */
+.game-info-row {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 15px 0;
+    margin: 10px 0;
+    background: var(--color-surface);
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.stat-card {
+    text-align: center;
+    padding: 10px;
+    flex: 1;
+}
+
+.stat-card-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+.stat-card-label {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-top: 5px;
+}
+
+/* Action Buttons Row - New styling for buttons below Sudoku board */
+.action-buttons-row {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    background: #e9ecef;
+    color: var(--color-text);
+    border: none;
+    padding: 12px 20px;
+    border-radius: 50px; /* Make buttons rounded */
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+.action-btn#sidebar-pencil-btn[data-mode="on"] {
+    background: linear-gradient(45deg, var(--color-primary), #00bfff);
+    color: white;
+}
+
+/* Header controls styling */
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-btn {
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header-btn:hover {
+    background: var(--color-secondary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.header-btn i {
+    font-size: 1.1rem;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .game-wrapper {
+        padding: 10px;
+        border-radius: 0;
+        min-height: 100vh;
+        width: 100%;
+    }
+    
+    body {
+        align-items: flex-start;
+    }
+    
+    .board-3d-scene {
+        /* Reduce 3D effect on small screens for better viewing */
+        transform: rotateX(0deg) rotateY(0deg);
+        margin: 10px auto;
+    }
+    
+    .game-info-row {
+        flex-direction: row;
+        gap: 10px;
+        padding: 10px;
+    }
+    
+    .stat-card {
+        padding: 8px;
+    }
+    
+    .stat-card-value {
+        font-size: 1rem;
+    }
+    
+    .stat-card-label {
+        font-size: 0.8rem;
+    }
+    
+    .action-buttons-row {
+        gap: 10px;
+        margin: 15px 0;
+    }
+    
+    .action-btn {
+        padding: 10px 15px;
+        font-size: 0.9rem;
+    }
+    
+    .header-controls {
+        gap: 8px;
+    }
+    
+    .header-btn {
+        padding: 8px 12px;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .game-info-row {
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    
+    .stat-card {
+        flex: 0 0 48%;
+        padding: 6px;
+    }
+    
+    .action-buttons-row {
+        gap: 8px;
+    }
+    
+    .action-btn {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+    
+    .header-controls {
+        gap: 5px;
+    }
+    
+    .header-btn {
+        padding: 6px 10px;
+        font-size: 0.8rem;
+    }
+}
